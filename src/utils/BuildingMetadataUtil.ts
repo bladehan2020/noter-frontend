@@ -76,7 +76,7 @@ export class BuildingMetadataUtil {
 
     public static fetchAndUpdateFootprint(footprintId: string): void {
         let footprint: FootprintPolygon[] = [];
-        axios.get('http://localhost/e/api/0.6/way/' + footprintId + '/full', config)
+        axios.get(process.env.REACT_APP_BACKEND_URL + '/e/api/0.6/way/' + footprintId + '/full', config)
             .then(response => {
                 let domParser = new DOMParser();
                 let xmlDocument = domParser.parseFromString(response.data, "text/xml");
@@ -110,25 +110,80 @@ export class BuildingMetadataUtil {
                 // them have alrady uploaded assoications, we need ids to pair them up first before
                 // further updating)
                 let all_footprint_tags = xmlDocument.getElementsByTagName('tag');
-                let image_id = null;
+                let bbl = null;
                 for (let i = 0; i < all_footprint_tags.length; i++) {
-                    if (all_footprint_tags[i].getAttribute('k') === 'noter_image_id') {
-                        image_id = all_footprint_tags[i].getAttribute('v');
+                    if (all_footprint_tags[i].getAttribute('k') === 'bbl') {
+                        bbl = all_footprint_tags[i].getAttribute('v');
                         break;
                     }
                 }
-                if (image_id !== null) {
-                    // assume the pattern: 1,e3363734-a3cc.jpg:2,9bd0-a8f9a17690fc.jpg
-                    let image_urls = image_id.split(":");
-                    let image_ids = [];
-                    for (let i = 0; i < image_urls.length; i++) {
-                        const id_url = image_urls[i].split(",");
-                        image_urls[i] = "http://localhost/nb/media/" + id_url[1];
-                        image_ids.push(id_url[0]);
-                    }
-                    this.fetchAndUpdateImageData(footprintId, image_urls, image_ids);
-                } else{
+                this.getAssociatedImages(footprintId, bbl);
+        })
+        .catch(function (error) {
+            console.log(error);
+        });
+    }
+
+    // Get the images associated with the current footprint in two cases:
+    // case 1: there are associated images encoded in its relations: return
+    // noter-backend url and image id
+    // case 2: no association happens yet, need to call the cloud functions to
+    // return the cloud url
+    public static getAssociatedImages(footprintId: string, bbl: string) {
+        // fetch the relation first
+        axios.get(process.env.REACT_APP_BACKEND_URL + '/e/api/0.6/way/' + footprintId + '/relations', config)
+            .then(response => {
+                let domParser = new DOMParser();
+                let xmlDocument = domParser.parseFromString(response.data, "text/xml");
+                console.log(xmlDocument);
+                // collect all relations, each of which encodes imageId+annotationId inside
+                let all_relations = xmlDocument.getElementsByTagName('relation');
+
+                // do differently based on if there is association
+                if (all_relations.length > 0) {
+                  // case 1: there are associated images encoded in its relations
+                  const allImageIds = [];
+                  for (let i = 0; i < all_relations.length; ++i) {
+                    const oneImageId = this.getImageId(all_relations[i]);
+                    if (!!oneImageId)
+                      allImageIds.push(oneImageId);
+                  }
+                  // build the noter-backend urls
+                  const allUrls = [];
+                  for (let i = 0; i < allImageIds.length; ++i) {
+                    allUrls.push(process.env.REACT_APP_BACKEND_URL + '/nb/download/' +
+                                 allImageIds[i] + '/');
+                  }
+                  // fecth images and their annotation and association if any
+                  this.fetchAndUpdateImageData(footprintId, allUrls, allImageIds);
+                } else {
+                  // return if no valid bbl
+                  if(bbl === null) {
                     window.alert("No images in database within the vicinity of the input footprint, please upload manually!");
+                    return;
+                  }
+                  // case 2: use cloud function to fetch the cloud urls of associated images
+                  axios.post(process.env.REACT_APP_BACKEND_URL + '/nb/lookup/', { "footprint":
+                             JSON.stringify({"properties":{"bbl":bbl}}) })
+                    .then(response => {
+                      // Create imageData directly and no more fecthing needed
+                      const allUrls = [];
+                      const associated_images = response.data.candidates;
+                      for (let i = 0; i < associated_images.length; ++i) {
+                        for (let j = 0; j < associated_images[i].urls.length; ++j) {
+                          allUrls.push(associated_images[i].urls[j].url);
+                        }
+                      }
+                      if (allUrls.length > 0) {
+                        this.buildImageData(allUrls);
+                      } else {
+                        window.alert("No images in database within the vicinity of the input footprint, please upload manually!");
+                        return;
+                      }
+                    })
+                    .catch(error => {
+                        console.log(error);
+                    })
                 }
         })
         .catch(function (error) {
@@ -136,9 +191,23 @@ export class BuildingMetadataUtil {
         });
     }
 
-    // Right now, we pass in image urls and ids. Later on, just pass in footprint information and then use it to fetch
-    // all image urls and ids.
-    public static fetchAndUpdateImageData(footprintId: string, image_urls: string[], image_ids: string[], ): void {
+    public static getImageId(oneRelationElement: any) {
+                let all_tags = oneRelationElement.getElementsByTagName('tag');
+                let imageId = null;
+                for (let i = 0; i < all_tags.length; i++) {
+                    if (all_tags[i].getAttribute('k') === 'noter_image_id') {
+                      imageId = all_tags[i].getAttribute('v');
+                      break;
+                    }
+                }
+                return imageId;
+    }
+
+    // for external images on the remote places (e.g. cloud bucket), we can
+    // directly create correpsonding imageData (same as we upload one image from
+    // local drive)
+    // at the end, we need to download them into memory for later upload
+    public static buildImageData(image_urls: string[]): void {
         //use the image urls and ids to construct the imageData
         const imageData: ImageData[] = [];
         for (let i = 0; i < image_urls.length; i++) {
@@ -155,6 +224,57 @@ export class BuildingMetadataUtil {
                 labelLines: [],
                 labelPolygons: [],
                 buildingMetadata: JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata())),
+                imageMetadata: "",
+                uploadResponse: "",
+                annotationsResponse: "",
+                associationsResponse: "",
+                lastUploadedAssociations: [],
+                isVisitedByObjectDetector: false,
+                isVisitedByPoseDetector: false
+            });
+        }
+        store.dispatch(addImageData(imageData));
+        store.dispatch(updateActiveImageIndex(0));
+        /* disable now to do real upload on server side
+        //download these images to memory
+        const allRequests = [];
+        for (let i = 0; i < image_urls.length; ++i) {
+            const request = axios.get('https://cnsviewer.corp.google.com/placer/prod/home/waybak/datasets/nyc-doris/public-images/1940s/1_manhattan/00818/nynyma_rec0040_1_00818_0010.jpg', {responseType: 'blob'});
+            allRequests.push(request);
+        }
+        axios.all(allRequests)
+            .then(axios.spread((...responses) => {
+              for (let i = 0; i < responses.length; ++i) {
+                console.log(responses[i]);
+                EditorModel.imageUrlBlobMap[image_urls[i]] = responses[i].data;
+              }
+            }))
+            .catch(error => {
+                console.log(error);
+            })
+       */
+    }
+
+    // Right now, we pass in image urls and ids. Later on, just pass in footprint information and then use it to fetch
+    // all image urls and ids.
+    public static fetchAndUpdateImageData(footprintId: string, image_urls: string[], image_ids: string[]): void {
+        //use the image urls and ids to construct the imageData
+        const imageData: ImageData[] = [];
+        for (let i = 0; i < image_urls.length; i++) {
+            imageData.push({
+                id: uuidv1(),
+                fileData: {
+                    name: "building" + i + 1 + ".jpg",
+                    url: image_urls[i],
+                    size: 1000
+                },
+                loadStatus: false,
+                labelRects: [],
+                labelPoints: [],
+                labelLines: [],
+                labelPolygons: [],
+                buildingMetadata: JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata())),
+                imageMetadata: "",
                 uploadResponse: {data: {id: image_ids[i]}},
                 annotationsResponse: "",
                 associationsResponse: "",
@@ -184,7 +304,7 @@ export class BuildingMetadataUtil {
         }
         const allRequests = [];
         for (let i = 0; i < all_annotation_ids.length; ++i) {
-            const request = axios.get('http://localhost/nb/api/v0.1/annotations/' + all_annotation_ids[i] + '/');
+            const request = axios.get(process.env.REACT_APP_BACKEND_URL + '/nb/api/v0.1/annotations/' + all_annotation_ids[i] + '/');
             allRequests.push(request);
         }
         axios.all(allRequests)
@@ -218,11 +338,11 @@ export class BuildingMetadataUtil {
     // extract the polygon labels from the annottion response
     public static getPolygonLabels(annotationsResponse: any): LabelPolygon[] {
         const content = JSON.parse(annotationsResponse.data.content_json);
-        console.log(content);
+        //console.log(content);
         let annotations: LabelPolygon[] = [];
         let polygonsJSON = content['POLYGONS_VGG_JSON']
         for (let imageFileName in polygonsJSON) {
-            console.log(imageFileName);
+            //console.log(imageFileName);
             const regions = polygonsJSON[imageFileName].regions;
             for (let index in regions) {
                 const oneLabelPolygon: LabelPolygon = {
@@ -255,7 +375,7 @@ export class BuildingMetadataUtil {
     // facadeId)
     public static fetchAssociations(footprintId: string, imageData: ImageData[]) {
         // fetch the relation first
-        axios.get('http://localhost/e/api/0.6/way/' + footprintId + '/relations', config)
+        axios.get(process.env.REACT_APP_BACKEND_URL + '/e/api/0.6/way/' + footprintId + '/relations', config)
             .then(response => {
                 let domParser = new DOMParser();
                 let xmlDocument = domParser.parseFromString(response.data, "text/xml");
@@ -281,7 +401,7 @@ export class BuildingMetadataUtil {
                 // fetch all associations related to the current footprint
                 const allRequests = [];
                 for (let i = 0; i < all_frontline_ids.length; ++i) {
-                    const request = axios.get('http://localhost/e/api/0.6/way/' + all_frontline_ids[i],
+                    const request = axios.get(process.env.REACT_APP_BACKEND_URL + '/e/api/0.6/way/' + all_frontline_ids[i],
                                               config);
                     allRequests.push(request);
                 }
@@ -382,7 +502,7 @@ export class BuildingMetadataUtil {
                 if (!!imageData[i].associationsResponse) {
                     imageData[i].associationsResponse.lineMemberIds.push(oneFrontlineId);
                 }
-                console.log(imageData[i]);
+                //console.log(imageData[i]);
                 break;
             }
         }

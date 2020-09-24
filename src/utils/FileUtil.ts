@@ -20,6 +20,7 @@ export class FileUtil {
             labelLines: [],
             labelPolygons: [],
 	    buildingMetadata: {footprint: currentBuildingMetadata.footprint, associations: []},
+            imageMetadata: "",
             uploadResponse: "",
             annotationsResponse: "",
             associationsResponse: "",
@@ -27,6 +28,39 @@ export class FileUtil {
             isVisitedByObjectDetector: false,
             isVisitedByPoseDetector: false
         }
+    }
+
+    public static createImageData(imageUrl: string): ImageData[] {
+        let currentBuildingMetadata =
+          JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata()));
+        for (let i = 0; i < currentBuildingMetadata.footprint.length; ++i) {
+            for (let j = 0; j < currentBuildingMetadata.footprint[i].vertices.length; ++j) {
+                currentBuildingMetadata.footprint[i].vertices[j].isSelected = false;
+            }
+        }
+        const imageData: ImageData[] = [];
+            imageData.push({
+                id: uuidv1(),
+                fileData: {
+                    name: "building.jpg",
+                    url: imageUrl,
+                    size: 1000
+                },
+                loadStatus: false,
+                labelRects: [],
+                labelPoints: [],
+                labelLines: [],
+                labelPolygons: [],
+                buildingMetadata: {footprint: currentBuildingMetadata.footprint, associations: []},
+                imageMetadata: "",
+                uploadResponse: "",
+                annotationsResponse: "",
+                associationsResponse: "",
+                lastUploadedAssociations: [],
+                isVisitedByObjectDetector: false,
+                isVisitedByPoseDetector: false
+            });
+        return imageData;
     }
 
     public static loadImage(fileData: File|UrlFile, onSuccess: (image:HTMLImageElement) => any, onFailure: () => any): any {

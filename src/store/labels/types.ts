@@ -61,6 +61,7 @@ export type ImageData = {
     labelLines: LabelLine[];
     labelPolygons: LabelPolygon[];
     buildingMetadata: BuildingMetadata;
+    imageMetadata: string;
 
     // Response from the backend for uploading this image, if exists.
     uploadResponse: any;
