@@ -140,7 +140,10 @@ export class Uploader {
         }
         // TODO: We hardcode the project_id here, but it needs to be fetched and set properly.
         formData.append("project_id", "1");
-        formData.append("description", imageData.imageMetadata);
+        let metadata_object =
+          !!imageData.imageMetadata?JSON.parse(imageData.imageMetadata):{};
+        metadata_object.imagename = imageData.fileData.name;
+        formData.append("description", JSON.stringify(metadata_object));
         console.log(formData);
         console.log(imageData.fileData);
         axios.post(process.env.REACT_APP_BACKEND_URL+"/nb/api/v0.1/images/", formData)
@@ -180,13 +183,14 @@ export class Uploader {
     }
 
     private static relationCreationRequest(changesetId: string, footprintId: string,
-                                           wayIds: string[], image_id: string,
+                                           wayIds: string[], image_id: string, image_name: string,
                                            annotation_id: string): string {
         let createOneRelationTemplate =
             `<?xml version="1.0" encoding="UTF-8"?>
                <osm>
                  <relation changeset="changesetId">
                    <tag k="noter_image_id" v="noterImageIdPlaceHolder"/>
+                   <tag k="noter_image_name" v="noterImageNamePlaceHolder"/>
                    <tag k="noter_annotation_id" v="noterAnnotationIdPlaceHolder"/>
                    memberPlaceHolder
                  </relation>
@@ -198,6 +202,8 @@ export class Uploader {
             createOneRelationTemplate.replace('changesetId', changesetId);
         createOneRelationTemplate =
             createOneRelationTemplate.replace('noterImageIdPlaceHolder', image_id);
+        createOneRelationTemplate =
+            createOneRelationTemplate.replace('noterImageNamePlaceHolder', image_name);
         createOneRelationTemplate =
             createOneRelationTemplate.replace('noterAnnotationIdPlaceHolder', annotation_id);
         const allWayIds = [];
@@ -226,7 +232,9 @@ export class Uploader {
                                            footprintId: string, lineIds: string[]): void {
         axios.put(process.env.REACT_APP_BACKEND_URL + '/e/api/0.6/relation/create',
                   this.relationCreationRequest(changesetId, footprintId,
-                                               lineIds, imageData.uploadResponse.data.id,
+                                               lineIds,
+                                               imageData.uploadResponse.data.id,
+                                               imageData.fileData.name,
                                                imageData.annotationsResponse.data.id),
                   config)
             .then(response => {
@@ -318,7 +326,7 @@ export class Uploader {
             `<?xml version="1.0" encoding="UTF-8"?>
                <osm>
                  <way changeset="changesetId">
-                   <tag k="note" v="facade frontline"/>
+                   <tag k="association" v="yes"/>
                    <tag k="facadeId" v="facadeIdPlaceHolder"/>
                    <nd ref="firstNodeId"/>
                    <nd ref="secondNodeId"/>

@@ -143,10 +143,13 @@ export class BuildingMetadataUtil {
                 if (all_relations.length > 0) {
                   // case 1: there are associated images encoded in its relations
                   const allImageIds = [];
+                  const allImageNames = [];
                   for (let i = 0; i < all_relations.length; ++i) {
                     const oneImageId = this.getImageId(all_relations[i]);
-                    if (!!oneImageId)
+                    if (!!oneImageId) {
                       allImageIds.push(oneImageId);
+                      allImageNames.push(this.getImageName(all_relations[i]));
+                    }
                   }
                   // build the noter-backend urls
                   const allUrls = [];
@@ -155,7 +158,8 @@ export class BuildingMetadataUtil {
                                  allImageIds[i] + '/');
                   }
                   // fecth images and their annotation and association if any
-                  this.fetchAndUpdateImageData(footprintId, allUrls, allImageIds);
+                  this.fetchAndUpdateImageData(footprintId, allUrls,
+                                               allImageIds, allImageNames);
                 } else {
                   // return if no valid bbl
                   if(bbl === null) {
@@ -203,6 +207,18 @@ export class BuildingMetadataUtil {
                 return imageId;
     }
 
+    public static getImageName(oneRelationElement: any) {
+                let all_tags = oneRelationElement.getElementsByTagName('tag');
+                let imageName = null;
+                for (let i = 0; i < all_tags.length; i++) {
+                    if (all_tags[i].getAttribute('k') === 'noter_image_name') {
+                      imageName = all_tags[i].getAttribute('v');
+                      break;
+                    }
+                }
+                return imageName;
+    }
+
     // for external images on the remote places (e.g. cloud bucket), we can
     // directly create correpsonding imageData (same as we upload one image from
     // local drive, but automatically set as PUBLIC)
@@ -211,10 +227,14 @@ export class BuildingMetadataUtil {
         //use the image urls and ids to construct the imageData
         const imageData: ImageData[] = [];
         for (let i = 0; i < image_urls.length; i++) {
+            let url_items = image_urls[i].split("?");
+            const filename_url = url_items[0];
+            url_items = filename_url.split("/");
+            const imagename = url_items[url_items.length - 1];
             imageData.push({
                 id: uuidv1(),
                 fileData: {
-                    name: "building" + i + 1 + ".jpg",
+                    name: imagename,
                     url: image_urls[i],
                     size: 1000
                 },
@@ -256,16 +276,19 @@ export class BuildingMetadataUtil {
        */
     }
 
-    // Right now, we pass in image urls and ids. Later on, just pass in footprint information and then use it to fetch
-    // all image urls and ids.
-    public static fetchAndUpdateImageData(footprintId: string, image_urls: string[], image_ids: string[]): void {
+    // The passed in image_urls are in the format of noter-backend way. So we
+    // need to pass the orignal file names of these images seperately
+    public static fetchAndUpdateImageData(footprintId: string, image_urls: string[], image_ids: string[], image_names: string[]): void {
         //use the image urls and ids to construct the imageData
         const imageData: ImageData[] = [];
         for (let i = 0; i < image_urls.length; i++) {
+            if (image_names[i] == null) {
+               image_names[i] = "building" + i + 1 + ".jpg";
+            }
             imageData.push({
                 id: uuidv1(),
                 fileData: {
-                    name: "building" + i + 1 + ".jpg",
+                    name: image_names[i],
                     url: image_urls[i],
                     size: 1000
                 },
