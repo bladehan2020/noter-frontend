@@ -62,6 +62,7 @@ export type ImageData = {
     labelPolygons: LabelPolygon[];
     buildingMetadata: BuildingMetadata;
     imageMetadata: string;
+    isPublic: boolean;
 
     // Response from the backend for uploading this image, if exists.
     uploadResponse: any;

@@ -133,12 +133,10 @@ export class Uploader {
         } else {
           formData.append("image", new File([""], "dummy.jpg"));
           formData.append("url", imageData.fileData.url);
-          /*
-          formData.append("image", new
-                          File([EditorModel.imageUrlBlobMap[imageData.fileData.url]],
-                               "myimage.jpg")
-                          );
-         */
+        }
+        // set up isPublic properly
+        if (imageData.isPublic) {
+          formData.append("public", "true");
         }
         // TODO: We hardcode the project_id here, but it needs to be fetched and set properly.
         formData.append("project_id", "1");

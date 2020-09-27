@@ -35,7 +35,7 @@ const LoadMoreImagesPopup: React.FC<IProps> = ({updateActiveImageIndex, addImage
     const onAccept = () => {
         if (acceptedFiles.length > 0) {
 	    updateActiveImageIndex(0);
-            addImageData(acceptedFiles.map((fileData:File) => FileUtil.mapFileDataToImageData(fileData)));
+            addImageData(acceptedFiles.map((fileData:File) => FileUtil.mapFileDataToImageData(fileData, isUploadPublic)));
             PopupActions.close();
 	    updateActivePopupType(PopupWindowType.EDIT_IMAGE_METADATA);
         } else {
@@ -57,7 +57,7 @@ const LoadMoreImagesPopup: React.FC<IProps> = ({updateActiveImageIndex, addImage
 		      // if return with good result, create the imageData and update
 		      if (allUrls.length > 0) {
 		        updateActiveImageIndex(0);
-		        addImageData(FileUtil.createImageData(allUrls[0]));
+		        addImageData(FileUtil.createImageData(allUrls[0], isUploadPublic));
 			PopupActions.close();
 			updateActivePopupType(PopupWindowType.EDIT_IMAGE_METADATA);
 		      } else {
@@ -140,6 +140,7 @@ const LoadMoreImagesPopup: React.FC<IProps> = ({updateActiveImageIndex, addImage
             onAccept={onAccept}
             rejectLabel={"Cancel"}
             onReject={onReject}
+	    skipCheckbox={false}
 	    onCheckbox={onCheckbox}
         />
     );

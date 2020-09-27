@@ -101,6 +101,7 @@ const EditImageMetadataPopup: React.FC<IProps> = ({updateActivePopupType, update
             onAccept={onUpdateAccept}
             rejectLabel={"Cancel"}
             onReject={onUpdateReject}
+	    skipCheckbox={true}
         />)
 };
 

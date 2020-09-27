@@ -3,7 +3,7 @@ import {ImageData, UrlFile} from "../store/labels/types";
 import {LabelsSelector} from "../store/selectors/LabelsSelector";
 
 export class FileUtil {
-    public static mapFileDataToImageData(fileData: File): ImageData {
+    public static mapFileDataToImageData(fileData: File, isPublic: boolean): ImageData {
         let currentBuildingMetadata =
           JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata()));
         for (let i = 0; i < currentBuildingMetadata.footprint.length; ++i) {
@@ -19,8 +19,9 @@ export class FileUtil {
             labelPoints: [],
             labelLines: [],
             labelPolygons: [],
-	    buildingMetadata: {footprint: currentBuildingMetadata.footprint, associations: []},
+            buildingMetadata: {footprint: currentBuildingMetadata.footprint, associations: []},
             imageMetadata: "",
+            isPublic: isPublic,
             uploadResponse: "",
             annotationsResponse: "",
             associationsResponse: "",
@@ -29,8 +30,9 @@ export class FileUtil {
             isVisitedByPoseDetector: false
         }
     }
-
-    public static createImageData(imageUrl: string): ImageData[] {
+    // imageUrl can be either normal image link or with query string
+    // so need to handle both when get the image name from it.
+    public static createImageData(imageUrl: string, isPublic: boolean): ImageData[] {
         let currentBuildingMetadata =
           JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata()));
         for (let i = 0; i < currentBuildingMetadata.footprint.length; ++i) {
@@ -38,11 +40,17 @@ export class FileUtil {
                 currentBuildingMetadata.footprint[i].vertices[j].isSelected = false;
             }
         }
+        // get image name from the imageUrl
+        let url_items = imageUrl.split("?");
+        const filename_url = url_items[0];
+        url_items = filename_url.split("/");
+        const imagename = url_items[url_items.length - 1];
+        //build imageData
         const imageData: ImageData[] = [];
             imageData.push({
                 id: uuidv1(),
                 fileData: {
-                    name: "building.jpg",
+                    name: imagename,
                     url: imageUrl,
                     size: 1000
                 },
@@ -53,6 +61,7 @@ export class FileUtil {
                 labelPolygons: [],
                 buildingMetadata: {footprint: currentBuildingMetadata.footprint, associations: []},
                 imageMetadata: "",
+                isPublic: isPublic,
                 uploadResponse: "",
                 annotationsResponse: "",
                 associationsResponse: "",

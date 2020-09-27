@@ -205,7 +205,7 @@ export class BuildingMetadataUtil {
 
     // for external images on the remote places (e.g. cloud bucket), we can
     // directly create correpsonding imageData (same as we upload one image from
-    // local drive)
+    // local drive, but automatically set as PUBLIC)
     // at the end, we need to download them into memory for later upload
     public static buildImageData(image_urls: string[]): void {
         //use the image urls and ids to construct the imageData
@@ -225,6 +225,7 @@ export class BuildingMetadataUtil {
                 labelPolygons: [],
                 buildingMetadata: JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata())),
                 imageMetadata: "",
+                isPublic: true,
                 uploadResponse: "",
                 annotationsResponse: "",
                 associationsResponse: "",
@@ -275,6 +276,7 @@ export class BuildingMetadataUtil {
                 labelPolygons: [],
                 buildingMetadata: JSON.parse(JSON.stringify(LabelsSelector.getBuildingMetadata())),
                 imageMetadata: "",
+                isPublic: false,
                 uploadResponse: {data: {id: image_ids[i]}},
                 annotationsResponse: "",
                 associationsResponse: "",
