@@ -66,7 +66,8 @@ const LoadMoreImagesPopup: React.FC<IProps> = ({updateActiveImageIndex, addImage
 		      }
 		})
 		.catch(error => {
-                        console.log(error);
+		    window.alert("Error in uploading this url automatically. Please download to local drive and upload from there!");
+                    console.log(error);
                 })
 	    }
         }

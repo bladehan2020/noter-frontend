@@ -196,7 +196,7 @@ export class Uploader {
                  </relation>
                </osm>`;
         let oneMemeberTemplate =
-            `<member type="way" ref="wayIdPlaceHolder"/>
+            `<member type="way" ref="wayIdPlaceHolder" role="rolePlaceHolder"/>
              memberPlaceHolder`;
         createOneRelationTemplate =
             createOneRelationTemplate.replace('changesetId', changesetId);
@@ -208,9 +208,15 @@ export class Uploader {
             createOneRelationTemplate.replace('noterAnnotationIdPlaceHolder', annotation_id);
         const allWayIds = [];
         Object.assign(allWayIds, wayIds);
-        allWayIds.push(footprintId);
+        // create one member with footprint
+        let oneMember = oneMemeberTemplate.replace('wayIdPlaceHolder', footprintId);
+        oneMember = oneMember.replace('rolePlaceHolder', 'footprint');
+        createOneRelationTemplate =
+                createOneRelationTemplate.replace('memberPlaceHolder', oneMember);
+        // create one member for each way (facadeline)
         for (let i = 0; i < allWayIds.length; ++i) {
             let oneMember = oneMemeberTemplate.replace('wayIdPlaceHolder', allWayIds[i]);
+            oneMember = oneMember.replace('rolePlaceHolder', 'facadeline');
             createOneRelationTemplate =
                 createOneRelationTemplate.replace('memberPlaceHolder', oneMember);
         }

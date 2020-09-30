@@ -16,6 +16,8 @@ import {ISize} from "../interfaces/ISize";
 import {EditorModel} from "../staticModels/EditorModel";
 import {LabelsSelector} from "../store/selectors/LabelsSelector";
 import {store} from "../index";
+import {PopupWindowType} from "../data/enums/PopupWindowType";
+import {updateActivePopupType} from "../store/general/actionCreators";
 import {updateFootprint, updateActiveImageIndex, addImageData} from "../store/labels/actionCreators";
 import axios from 'axios';
 import {findLast} from "lodash";
@@ -167,9 +169,11 @@ export class BuildingMetadataUtil {
                     return;
                   }
                   // case 2: use cloud function to fetch the cloud urls of associated images
+                  store.dispatch(updateActivePopupType(PopupWindowType.LOADER));
                   axios.post(process.env.REACT_APP_BACKEND_URL + '/nb/lookup/', { "footprint":
                              JSON.stringify({"properties":{"bbl":bbl}}) })
                     .then(response => {
+                      store.dispatch(updateActivePopupType(null));
                       // Create imageData directly and no more fecthing needed
                       const allUrls = [];
                       const associated_images = response.data.candidates;
@@ -186,6 +190,8 @@ export class BuildingMetadataUtil {
                       }
                     })
                     .catch(error => {
+                        store.dispatch(updateActivePopupType(null));
+                        window.alert("Error in getting images within the vicinity of the input footprint, please upload manually!");
                         console.log(error);
                     })
                 }
