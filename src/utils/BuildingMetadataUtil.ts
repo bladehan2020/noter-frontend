@@ -28,6 +28,24 @@ const config = {
 };
 
 export class BuildingMetadataUtil {
+    public static readonly EARTH_RADIUS_METERS = 6378137;
+
+    public static getMercatorXFromLongitude(longitude: number) {
+      return longitude / 180.0;
+    }
+
+    public static getMercatorYFromLatitude(latitude: number) {
+      return Math.log(Math.tan(Math.PI / 4.0 + latitude / 180 * Math.PI / 2.0)) / Math.PI;
+    }
+
+    public static getEarthCircumferenceFromLatitude(latitude: number) {
+      return  2 * Math.PI * this.EARTH_RADIUS_METERS * Math.cos(latitude / 180 * Math.PI);
+    }
+
+    public static getOneMeterInMercatorUnit(latitude: number) {
+      return 2 / this.getEarthCircumferenceFromLatitude(latitude);
+    }
+
     public static convertResponseToFootprint(response: any): FootprintPolygon[] {
         let footprint: FootprintPolygon[] = [];
         for (var i = 0; i < response.length; ++i) {
@@ -42,12 +60,30 @@ export class BuildingMetadataUtil {
             }
             footprint.push({vertices: allVertices})
         }
-
         return BuildingMetadataUtil.normalizeFootprint(footprint);
+    }
+
+    public static meterizeFootprint(footprint: FootprintPolygon[]) {
+        // further convert into meter units using Mercator coordinates
+        const reference_x = this.getMercatorXFromLongitude(footprint[0].vertices[0].x);
+        const referencd_y = this.getMercatorYFromLatitude(footprint[0].vertices[0].y);
+        const meter_to_mercator_ratio = 1 / this.getOneMeterInMercatorUnit(footprint[0].vertices[0].y);
+        for (let i = 0; i < footprint.length; ++i) {
+          for (let j = 0; j < footprint[i].vertices.length; ++j) {
+            let onePoint = footprint[i].vertices[j];
+            onePoint.x = (this.getMercatorXFromLongitude(onePoint.x) -
+              reference_x) * meter_to_mercator_ratio;
+            onePoint.y = (this.getMercatorYFromLatitude(onePoint.y) -
+              referencd_y) * meter_to_mercator_ratio;
+            footprint[i].vertices[j].x = onePoint.x;
+            footprint[i].vertices[j].y = -onePoint.y;
+          }
+        }
     }
 
     public static normalizeFootprint(footprint: FootprintPolygon[]): FootprintPolygon[] {
         if(footprint && footprint.length > 0 && footprint[0].vertices.length > 0) {
+            this.meterizeFootprint(footprint);
             let minX = footprint[0].vertices[0].x;
             let maxX = footprint[0].vertices[0].x;
             let minY = footprint[0].vertices[0].y;
@@ -99,7 +135,7 @@ export class BuildingMetadataUtil {
                 for (let i = 0; i < all_node_ids.length; i++) {
                     let id = all_node_ids[i].getAttribute('ref');
                     if (allVertices.length == 0 || id != allVertices[0].nodeId) {
-                        allVertices.push({x: all_nodes_map[id].lon*1000, y: -all_nodes_map[id].lat*1000,
+                        allVertices.push({x: all_nodes_map[id].lon, y: all_nodes_map[id].lat,
                                           isSelected: false, nodeId: id});
                     }
                 }
@@ -500,15 +536,28 @@ export class BuildingMetadataUtil {
         };
         const footprintVertices = LabelsSelector.getBuildingMetadata().footprint[0].vertices;
         let all_node_ids = xmlDocument.getElementsByTagName('nd');
+        // the point indices, should be converted to edge indices before
+        // assiging to assoication
+        let pointIndices = [];
         for (let i = 0; i < all_node_ids.length; i++) {
             let id = all_node_ids[i].getAttribute('ref');
             for (let j = 0; j < footprintVertices.length; ++j) {
                 if (footprintVertices[j].nodeId === id) {
-                    oneAssociation.indices.push(j);
+                    pointIndices.push(j);
                     break;
                 }
             }
         }
+        // convert point indices into edge indices
+        for (let j = 0; j < footprintVertices.length; ++j) {
+          // check if the current edge two ending points [j, next] are both in
+          // the point indices
+          const next = (j + 1) % footprintVertices.length;
+          if (pointIndices.indexOf(j) >=0 && pointIndices.indexOf(next) >= 0) {
+            oneAssociation.indices.push(j);
+          }
+        }
+
         let all_tags = xmlDocument.getElementsByTagName('tag');
         let facadeId = null;
         for (let i = 0; i < all_tags.length; i++) {
@@ -573,7 +622,7 @@ export class BuildingMetadataUtil {
             for (let j = 0; j < buildingMetadata.footprint[i].vertices.length; ++j) {
                 if (buildingMetadata.footprint[i].vertices[j].isSelected) {
                     ++ availablePointNum;
-                    if (availablePointNum >= 2)
+                    if (availablePointNum >= 1)
                         return true;
                 }
             }
