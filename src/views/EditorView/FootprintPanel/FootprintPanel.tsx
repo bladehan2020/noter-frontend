@@ -12,34 +12,15 @@
 import React from 'react';
 import './FootprintPanel.scss';
 import {ISize} from "../../../interfaces/ISize";
-import {ImageData, LabelPoint, LabelRect, BuildingMetadata} from "../../../store/labels/types";
-import {FileUtil} from "../../../utils/FileUtil";
+import {BuildingMetadata} from "../../../store/labels/types";
 import {AppState} from "../../../store";
 import {connect} from "react-redux";
 import {updateSelectdPoints} from "../../../store/labels/actionCreators";
-import {ImageRepository} from "../../../logic/imageRepository/ImageRepository";
-import {LabelType} from "../../../data/enums/LabelType";
-import {PopupWindowType} from "../../../data/enums/PopupWindowType";
 import {CanvasUtil} from "../../../utils/CanvasUtil";
 import {RectUtil} from "../../../utils//RectUtil";
-import {CustomCursorStyle} from "../../../data/enums/CustomCursorStyle";
-import {ImageLoadManager} from "../../../logic/imageRepository/ImageLoadManager";
 import {EventType} from "../../../data/enums/EventType";
-import {EditorData} from "../../../data/EditorData";
 import {EditorModel} from "../../../staticModels/EditorModel";
-import {EditorActions} from "../../../logic/actions/EditorActions";
-import {EditorUtil} from "../../../utils/EditorUtil";
-import {ContextManager} from "../../../logic/context/ContextManager";
-import {ContextType} from "../../../data/enums/ContextType";
-import Scrollbars from 'react-custom-scrollbars';
-import {ViewPortActions} from "../../../logic/actions/ViewPortActions";
-import {PlatformModel} from "../../../staticModels/PlatformModel";
-import LabelControlPanel from "../LabelControlPanel/LabelControlPanel";
 import {IPoint} from "../../../interfaces/IPoint";
-import {RenderEngineUtil} from "../../../utils/RenderEngineUtil";
-import {LabelStatus} from "../../../data/enums/LabelStatus";
-import {isEqual} from "lodash";
-import {AIActions} from "../../../logic/actions/AIActions";
 import {DrawUtil} from "../../../utils/DrawUtil";
 import {BuildingMetadataUtil} from "../../../utils/BuildingMetadataUtil";
 import {Settings} from "../../../settings/Settings";
@@ -104,13 +85,12 @@ class FootprintPanel extends React.Component<IProps, IState> {
 	for (let i = 0; i < buildingMetadata.associations.length; ++i) {
 	    const onePair = buildingMetadata.associations[i];
 	    const polygonIndex = onePair.polygonIndex;
-	    if (polygonIndex != polyIndex) {
+	    if (polygonIndex !== polyIndex) {
 	        continue;
 	    }
-	    const associatedEdgePoints = [];
 	    for (let j = 0; j < onePair.indices.length; ++j) {
 	    	const pointIndex = onePair.indices[j];
-	    	if (pointIndex == index) {
+	    	if (pointIndex === index) {
 		  found = true;
 		}
 	    }
@@ -166,7 +146,7 @@ class FootprintPanel extends React.Component<IProps, IState> {
 	// resize the footprint properly before drawing it
 	const {buildingMetadata} = this.props;
 	// make sure the footprint data is available
-	if (buildingMetadata.footprint.length == 0) {
+	if (buildingMetadata.footprint.length === 0) {
 	   console.log("footprint data is not ready yet!");
 	   return;
 	}

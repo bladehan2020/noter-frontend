@@ -201,7 +201,7 @@ export class BuildingMetadataUtil {
                 } else {
                   // return if no valid bbl
                   if(bbl === null) {
-                    window.alert("No images in database within the vicinity of the input footprint, please upload manually!");
+                    //window.alert("No images in database within the vicinity of the input footprint, please upload manually!");
                     return;
                   }
                   // case 2: use cloud function to fetch the cloud urls of associated images
@@ -298,24 +298,6 @@ export class BuildingMetadataUtil {
         }
         store.dispatch(addImageData(imageData));
         store.dispatch(updateActiveImageIndex(0));
-        /* disable now to do real upload on server side
-        //download these images to memory
-        const allRequests = [];
-        for (let i = 0; i < image_urls.length; ++i) {
-            const request = axios.get('https://cnsviewer.corp.google.com/placer/prod/home/waybak/datasets/nyc-doris/public-images/1940s/1_manhattan/00818/nynyma_rec0040_1_00818_0010.jpg', {responseType: 'blob'});
-            allRequests.push(request);
-        }
-        axios.all(allRequests)
-            .then(axios.spread((...responses) => {
-              for (let i = 0; i < responses.length; ++i) {
-                console.log(responses[i]);
-                EditorModel.imageUrlBlobMap[image_urls[i]] = responses[i].data;
-              }
-            }))
-            .catch(error => {
-                console.log(error);
-            })
-       */
     }
 
     // The passed in image_urls are in the format of noter-backend way. So we
